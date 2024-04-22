@@ -11,4 +11,4 @@ COPY ./src .
 RUN pip install --upgrade pip 
 
 # python ライブラリのインストール
-RUN pip install -r requirements.txt
+RUN pip install -r lib/requirements.txt
