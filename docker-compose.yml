@@ -1,0 +1,10 @@
+services:
+  python3:
+    container_name: ${PYTHON_CONTAINER_HOST}
+    hostname: ${PYTHON_HOST}
+    tty: true
+    build:
+      context: .
+      dockerfile: ./docker/python3/Dockerfile
+    volumes:
+      - ./src:/python/src/app
