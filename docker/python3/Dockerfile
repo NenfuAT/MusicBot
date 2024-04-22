@@ -7,6 +7,7 @@ WORKDIR /python/src/app/
 # ローカルからコンテナへコピー
 COPY ./src .
 
+
 # upgrade pip コマンド
 RUN pip install --upgrade pip 
 
