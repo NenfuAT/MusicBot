@@ -2,6 +2,7 @@ services:
   python3:
     container_name: ${PYTHON_CONTAINER_HOST}
     hostname: ${PYTHON_HOST}
+    env_file: .env
     tty: true
     build:
       context: .
