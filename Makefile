@@ -12,5 +12,5 @@ down:
 log:
 	docker compose logs
 
-python:
+py:
 	docker exec -it $(PYTHON_CONTAINER_HOST) /bin/sh
