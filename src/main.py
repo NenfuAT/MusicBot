@@ -2,8 +2,11 @@
 import discord
 from discord import app_commands
 import os
+import get_mp3
 
 TOKEN = os.environ['BOT_TOKEN']
+
+musics=[str]
 
 # 接続に必要なオブジェクトを生成
 intents = discord.Intents.default()
@@ -46,8 +49,8 @@ async def join(interaction: discord.Interaction):
         await voice_channel.connect()  # ボットがボイスチャンネルに接続
         await interaction.response.send_message(f'{voice_channel.name}に参加しました')
 
-@tree.command(name='disconnect', description='VCからボットを退出させます')
-async def join(interaction: discord.Interaction):
+@tree.command(name='dis', description='VCからボットを退出させます')
+async def disconnect(interaction: discord.Interaction):
     voice_client = interaction.guild.voice_client
 
     if voice_client is not None:
@@ -56,5 +59,24 @@ async def join(interaction: discord.Interaction):
         await interaction.response.send_message(f'{channel_name}から切断しました')
     else:
         await interaction.response.send_message('ボイスチャンネルに接続していません')
+
+@tree.command(name="add", description="URLから再生リストに追加します")
+@app_commands.describe(url="Yotubeのリンク")
+async def add(interaction: discord.Interaction, url: str):
+        await interaction.response.defer()
+        global musics
+        filename,musics = get_mp3.get_mp3(url=url, musics=musics)  # 処理が終わるまで待機
+        await interaction.followup.send(f'{url}\n{filename}をリストに追加しました')  # 結果をユーザーに知らせる
+
+@tree.command(name="list", description="再生リストを表示します")
+async def show_playlist(interaction: discord.Interaction):
+    # 再生リストが空かどうかを確認
+    if not musics:
+        await interaction.response.send_message("再生リストは空です")
+    else:
+        # 再生リストを番号付きで表示
+        playlist = "\n".join([f"{index + 1}. {title}" for index, title in enumerate(musics)])  # インデックス番号を付ける
+        await interaction.response.send_message(f"再生リスト:\n{playlist}")
+
 # Botの起動とDiscordサーバーへの接続
 client.run(TOKEN)
