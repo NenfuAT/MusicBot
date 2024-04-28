@@ -6,7 +6,9 @@ import get_mp3
 
 TOKEN = os.environ['BOT_TOKEN']
 
-musics=[str]
+musics=[]
+loop=False
+count=0
 
 # 接続に必要なオブジェクトを生成
 intents = discord.Intents.default()
@@ -58,25 +60,91 @@ async def disconnect(interaction: discord.Interaction):
         await voice_client.disconnect()  # ボイスチャンネルを切断
         await interaction.response.send_message(f'{channel_name}から切断しました')
     else:
-        await interaction.response.send_message('ボイスチャンネルに接続していません')
+        await interaction.response.send_message('ボットがVCにいる必要があります')
 
 @tree.command(name="add", description="URLから再生リストに追加します")
 @app_commands.describe(url="Yotubeのリンク")
 async def add(interaction: discord.Interaction, url: str):
-        await interaction.response.defer()
-        global musics
-        filename,musics = get_mp3.get_mp3(url=url, musics=musics)  # 処理が終わるまで待機
-        await interaction.followup.send(f'{url}\n{filename}をリストに追加しました')  # 結果をユーザーに知らせる
+        voice_client = interaction.guild.voice_client
+        if voice_client is not None:
+            await interaction.response.defer()
+            global musics
+            result,musics = await get_mp3.get_mp3(url,musics)  # 処理が終わるまで待機
+            await interaction.followup.send(f"{result}")  # 結果をユーザーに知らせる
+        else:
+            await interaction.response.send_message('ボットがVCにいる必要があります')
 
 @tree.command(name="list", description="再生リストを表示します")
 async def show_playlist(interaction: discord.Interaction):
-    # 再生リストが空かどうかを確認
-    if not musics:
-        await interaction.response.send_message("再生リストは空です")
+    voice_client = interaction.guild.voice_client
+    if voice_client is not None:
+        # 再生リストが空かどうかを確認
+        if not musics:
+            await interaction.response.send_message("再生リストは空です")
+        else:
+            # 再生リストを番号付きで表示
+            playlist = "\n".join([f"{index + 1}. {title}" for index, title in enumerate(musics)])  # インデックス番号を付ける
+            await interaction.response.send_message(f"再生リスト:\n{playlist}")
     else:
-        # 再生リストを番号付きで表示
-        playlist = "\n".join([f"{index + 1}. {title}" for index, title in enumerate(musics)])  # インデックス番号を付ける
-        await interaction.response.send_message(f"再生リスト:\n{playlist}")
+        await interaction.response.send_message('ボットがVCにいる必要があります')
 
+@tree.command(name="play", description="再生リストから曲を再生します")
+async def play(interaction: discord.Interaction):
+    # 再生終了を検知するためのコールバック関数
+    async def on_audio_end(interaction, error):
+        if error:
+            print("Error:", error)
+        else:
+            global count
+            count += 1
+            
+            if count < len(musics):
+                voice_client = interaction.guild.voice_client
+                voice_client.play(discord.FFmpegPCMAudio(musics[count]), after=lambda e: client.loop.create_task(on_audio_end(interaction, e)))
+                await interaction.edit_original_response(content=f"再生中: {musics[count]}")
+            else:
+                await interaction.edit_original_response(content="再生が終了しました。")
+                await interaction.voice_client.disconnect()
+
+    global count
+    count = 0
+
+    # 再生終了を検知するためのコールバックをラップ
+    async def on_audio_end_wrapper(error):
+        await on_audio_end(interaction, error)
+
+    voice_client = interaction.guild.voice_client
+
+    if voice_client is None or not voice_client.is_connected():
+        await interaction.response.send_message("ボイスチャンネルに参加していません")
+        return
+
+    # 音声再生中かどうか確認
+    if voice_client.is_playing():
+        await interaction.response.send_message("既に再生中です。")
+        return
+
+
+    if not musics:
+        await interaction.response.send_message("再生リストが空です")
+        return
+
+    song_path = musics[count]
+
+    # 最初の曲を再生し、afterにラップされたコールバックを指定
+    voice_client.play(discord.FFmpegPCMAudio(song_path), after=lambda e: client.loop.create_task(on_audio_end_wrapper(e)))
+
+    await interaction.response.send_message(f"再生中: {song_path}")
+
+
+@tree.command(name="loop", description="再生リスト内の曲をループをON/OFFします")
+async def loop(interaction: discord.Interaction):
+    if(loop==False):
+        loop==True
+        await interaction.response.send_message(f"ループON")
+    if(loop==True):
+        loop==False
+        await interaction.response.send_message(f"ループOFF")
 # Botの起動とDiscordサーバーへの接続
 client.run(TOKEN)
+
